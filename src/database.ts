@@ -4,14 +4,9 @@ import Postgres from "./postgres";
 
 export interface Document<T> {
   id: number;
-  body: T;
   created: Date;
   updated: Date;
-}
-
-export interface Link {
-  id: number;
-  name: string;
+  body: T;
 }
 
 export interface Options {
@@ -21,6 +16,8 @@ export interface Options {
   database: string;
   onLost?: (err: any) => any;
 }
+
+export type Prop<T> = keyof T;
 
 export class Database {
   private pg: Postgres;
@@ -35,17 +32,18 @@ export class Database {
     this.pg = pg;
   }
 
-  async get<Body>(collection: string, id: number): Promise<Document<Body>> {
-    const result = await this.tryGet<Body>(collection, id);
+  async get<Body>(collection: string, id: number, props?: Prop<Body>[]): Promise<Document<Body>> {
+    const result = await this.tryGet<Body>(collection, id, props);
     if (result === null) {
       throw new MissingRecordError(collection, { id });
     }
     return result;
   }
 
-  async tryGet<Body>(collection: string, id: number): Promise<Document<Body> | null> {
+  async tryGet<Body>(collection: string, id: number, props?: Prop<Body>[]): Promise<Document<Body> | null> {
+    const columns = propsToColumns(props);
     const results = await this.queryCollection<Document<Body>>(collection, { id }, sql`
-      select *
+      select id, created, updated, ${columns}
       from ${collection}
       where id = $[id]
       limit 1
@@ -83,16 +81,6 @@ export class Database {
       select *
       from ${collection}
       where body @> $[criteria]
-      limit 1
-    `);
-    return results.length ? results[0] : null;
-  }
-
-  async link(collection: string, id: number): Promise<Link | null> {
-    const results = await this.queryCollection<Link>(collection, { id }, sql`
-      select id, body->'name' "name"
-      from ${collection}
-      where id = $[id]
       limit 1
     `);
     return results.length ? results[0] : null;
@@ -162,6 +150,12 @@ export class Database {
       using gin (body jsonb_path_ops);
     `);
   }
+}
+
+function propsToColumns<Body>(props: undefined | Prop<Body>[]) {
+  return !props ? "*" : `jsonb_build_object(${props.map(prop => `
+    '${prop}', body->'${prop}'
+  `).join(", ")}) "body"`;
 }
 
 export class MissingRecordError extends Error {
