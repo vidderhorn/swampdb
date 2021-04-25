@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "module": "CommonJS",
+    "esModuleInterop": true,
+    "lib": ["ES2019"],
+    "types": ["node"],
+    "target": "ES2019",
+    "strict": true,
+    "skipLibCheck": true,
+    "noImplicitReturns": true,
+    "sourceMap": true,
+    "declaration": true,
+    "outDir": "lib",
+    "baseUrl": ".",
+    "paths": {
+      "typedtext": ["../typedtext/src/text"]
+    }
+  },
+  "files": ["src/database.ts"]
+}
