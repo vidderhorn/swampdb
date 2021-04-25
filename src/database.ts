@@ -35,7 +35,15 @@ export class Database {
     this.pg = pg;
   }
 
-  async get<Body>(collection: string, id: number): Promise<Document<Body> | null> {
+  async get<Body>(collection: string, id: number): Promise<Document<Body>> {
+    const result = await this.tryGet<Body>(collection, id);
+    if (result === null) {
+      throw new MissingRecordError(collection, { id });
+    }
+    return result;
+  }
+
+  async tryGet<Body>(collection: string, id: number): Promise<Document<Body> | null> {
     const results = await this.queryCollection<Document<Body>>(collection, { id }, sql`
       select *
       from ${collection}
@@ -62,7 +70,15 @@ export class Database {
     `);
   }
 
-  async findOne<Body>(collection: string, criteria: Partial<Body>): Promise<Document<Body> | null> {
+  async findOne<Body>(collection: string, criteria: Partial<Body>): Promise<Document<Body>> {
+    const result = await this.tryFindOne(collection, criteria);
+    if (result === null) {
+      throw new MissingRecordError(collection, criteria);
+    }
+    return result;
+  }
+
+  async tryFindOne<Body>(collection: string, criteria: Partial<Body>): Promise<Document<Body> | null> {
     const results = await this.queryCollection<Document<Body>>(collection, { criteria }, sql`
       select *
       from ${collection}
@@ -145,6 +161,17 @@ export class Database {
       on ${collection}
       using gin (body jsonb_path_ops);
     `);
+  }
+}
+
+export class MissingRecordError extends Error {
+  collection: string;
+  criteria: any;
+
+  constructor(collection: string, criteria?: any) {
+    super(`Could not find record in collection "${collection}".`);
+    this.collection = collection;
+    this.criteria = criteria;
   }
 }
 
